@@ -210,7 +210,7 @@ def wait_for_seeding_ready(session, handle, timeout=120):
     raise TimeoutError(f"Torrent did not enter seeding state within {timeout}s")
 
 
-def submit_to_torbox(api_key: str, torrent_path: str, name: str = None, magnet: str = None, retries: int = 3) -> int:
+def submit_to_torbox(api_key: str, torrent_path: str, name: str = None, magnet: str = None, retries: int = 3, allow_zip: bool = False) -> int:
     url = f"{TORBOX_BASE_URL}/v1/api/torrents/createtorrent"
     headers = {"Authorization": f"Bearer {api_key}"}
 
@@ -221,7 +221,7 @@ def submit_to_torbox(api_key: str, torrent_path: str, name: str = None, magnet: 
             files = {"file": (os.path.basename(torrent_path), f, "application/x-bittorrent")}
             data = {
                 "seed": 1,
-                "allow_zip": "true",
+                "allow_zip": "true" if allow_zip else "false",
                 "name": name or os.path.splitext(os.path.basename(torrent_path))[0],
             }
             response = requests.post(url, headers=headers, files=files, data=data, timeout=120)
@@ -243,7 +243,7 @@ def submit_to_torbox(api_key: str, torrent_path: str, name: str = None, magnet: 
                 data_magnet = {
                     "magnet": magnet,
                     "seed": 1,
-                    "allow_zip": "true",
+                    "allow_zip": "true" if allow_zip else "false",
                     "name": name or "torbox_upload",
                 }
                 response = requests.post(url, headers=headers, data=data_magnet, timeout=120)
@@ -330,7 +330,7 @@ def list_torrent_files(api_key: str, torrent_id: int) -> list:
         raise RuntimeError(f"TorBox error: {result.get('error')} - {result.get('detail')}")
 
     torrent_data = result["data"]
-    files = torrent_data.get("files", [])
+    files = torrent_data.get("files") or []
 
     log.info(f"Torrent: {torrent_data.get('name')} (id={torrent_id})")
     log.info(f"State: {torrent_data.get('download_state')}, Finished: {torrent_data.get('download_finished')}")
@@ -456,6 +456,8 @@ def main():
                         help="Only create torrent and seed, don't submit to TorBox")
     parser.add_argument("--name", help="Name for the torrent on TorBox")
     parser.add_argument("--torrent-out", help="Save the .torrent file to this path")
+    parser.add_argument("--allow-zip", action="store_true",
+                        help="Allow TorBox to zip files (default: no zip, individual files)")
 
     # Polling options
     parser.add_argument("--poll-interval", type=int, default=POLL_INTERVAL,
@@ -605,7 +607,7 @@ def main():
         log.info("=" * 60)
         log.info("Submitting torrent to TorBox")
         log.info("=" * 60)
-        torrent_id = submit_to_torbox(args.api_key, torrent_path, name=torrent_name, magnet=magnet)
+        torrent_id = submit_to_torbox(args.api_key, torrent_path, name=torrent_name, magnet=magnet, allow_zip=args.allow_zip)
 
         # Step 5: Poll until done
         log.info("=" * 60)
@@ -619,7 +621,7 @@ def main():
         log.info("=" * 60)
         log.info(f"TorBox download complete! torrent_id={torrent_id}")
         log.info("=" * 60)
-        files = torrent_data.get("files", [])
+        files = torrent_data.get("files") or []
         log.info(f"Files available ({len(files)}):")
         for f in files:
             size = f.get("size", 0)

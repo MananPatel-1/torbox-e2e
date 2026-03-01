@@ -54,6 +54,7 @@ python3 -m venv venv
 --size-mb N          Dummy zip size for test mode (default: 3)
 --port N             Seeding port (default: 6881)
 --seed-only          Only seed, don't submit to TorBox
+--allow-zip          Allow TorBox to zip files (default: individual files)
 --name NAME          Custom torrent name
 --torrent-out PATH   Save .torrent file to this path
 --poll-interval N    Seconds between polls (default: 10)
